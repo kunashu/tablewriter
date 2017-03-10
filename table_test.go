@@ -94,6 +94,68 @@ func TestCSVSeparator(t *testing.T) {
 	table.Render()
 }
 
+func TestWriteTo(t *testing.T) {
+	data := [][]string{
+		[]string{"1/1/2014", "Domain name", "2233", "$10.98"},
+		[]string{"1/1/2014", "January Hosting", "2233", "$54.95"},
+		[]string{"", "    (empty)\n    (empty)", "", ""},
+		[]string{"1/4/2014", "February Hosting", "2233", "$51.00"},
+		[]string{"1/4/2014", "February Extra Bandwidth", "2233", "$30.00"},
+		[]string{"1/4/2014", "    (Discount)", "2233", "-$1.00"},
+	}
+
+	var buf bytes.Buffer
+	table := NewWriter(nil)
+	table.SetAutoWrapText(false)
+	table.SetHeader([]string{"Date", "Description", "CV2", "Amount"})
+	table.SetFooter([]string{"", "", "Total", "$145.93"}) // Add Footer
+	table.SetBorder(false)                                // Set Border to false
+	table.AppendBulk(data)                                // Add Bulk Data
+	if err := table.WriteTo(&buf); err != nil {
+		t.Errorf("Encounter unexpected error when writing to io.Writer, %v", err)
+	}
+
+	want := `    DATE   |       DESCRIPTION        |  CV2  | AMOUNT   
++----------+--------------------------+-------+---------+
+  1/1/2014 | Domain name              |  2233 | $10.98   
+  1/1/2014 | January Hosting          |  2233 | $54.95   
+           |     (empty)              |       |          
+           |     (empty)              |       |          
+  1/4/2014 | February Hosting         |  2233 | $51.00   
+  1/4/2014 | February Extra Bandwidth |  2233 | $30.00   
+  1/4/2014 |     (Discount)           |  2233 | -$1.00   
++----------+--------------------------+-------+---------+
+                                        TOTAL | $145 93  
+                                      +-------+---------+
+`
+	got := buf.String()
+	if got != want {
+		t.Errorf("border table rendering failed\ngot:\n%s\nwant:\n%s\n", got, want)
+	}
+}
+
+func TestWriteToNil(t *testing.T) {
+	data := [][]string{
+		[]string{"1/1/2014", "Domain name", "2233", "$10.98"},
+		[]string{"1/1/2014", "January Hosting", "2233", "$54.95"},
+		[]string{"", "    (empty)\n    (empty)", "", ""},
+		[]string{"1/4/2014", "February Hosting", "2233", "$51.00"},
+		[]string{"1/4/2014", "February Extra Bandwidth", "2233", "$30.00"},
+		[]string{"1/4/2014", "    (Discount)", "2233", "-$1.00"},
+	}
+
+	var buf bytes.Buffer
+	table := NewWriter(&buf)
+	table.SetAutoWrapText(false)
+	table.SetHeader([]string{"Date", "Description", "CV2", "Amount"})
+	table.SetFooter([]string{"", "", "Total", "$145.93"}) // Add Footer
+	table.SetBorder(false)                                // Set Border to false
+	table.AppendBulk(data)                                // Add Bulk Data
+	if err := table.WriteTo(nil); err == nil {
+		t.Error("Did not encounterd expected error when passing nil to WriteTo")
+	}
+}
+
 func TestNoBorder(t *testing.T) {
 	data := [][]string{
 		[]string{"1/1/2014", "Domain name", "2233", "$10.98"},
@@ -204,7 +266,7 @@ func TestPrintHeading(t *testing.T) {
 	var buf bytes.Buffer
 	table := NewWriter(&buf)
 	table.SetHeader([]string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c"})
-	table.printHeading()
+	table.printHeading(&buf)
 	want := `| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | A | B | C |
 +---+---+---+---+---+---+---+---+---+---+---+---+
 `
@@ -219,7 +281,7 @@ func TestPrintHeadingWithoutAutoFormat(t *testing.T) {
 	table := NewWriter(&buf)
 	table.SetHeader([]string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c"})
 	table.SetAutoFormatHeaders(false)
-	table.printHeading()
+	table.printHeading(&buf)
 	want := `| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | a | b | c |
 +---+---+---+---+---+---+---+---+---+---+---+---+
 `
@@ -234,7 +296,7 @@ func TestPrintFooter(t *testing.T) {
 	table := NewWriter(&buf)
 	table.SetHeader([]string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c"})
 	table.SetFooter([]string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c"})
-	table.printFooter()
+	table.printFooter(&buf)
 	want := `| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | A | B | C |
 +---+---+---+---+---+---+---+---+---+---+---+---+
 `
@@ -250,7 +312,7 @@ func TestPrintFooterWithoutAutoFormat(t *testing.T) {
 	table.SetAutoFormatHeaders(false)
 	table.SetHeader([]string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c"})
 	table.SetFooter([]string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c"})
-	table.printFooter()
+	table.printFooter(&buf)
 	want := `| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | a | b | c |
 +---+---+---+---+---+---+---+---+---+---+---+---+
 `
@@ -307,7 +369,7 @@ func TestPrintLine(t *testing.T) {
 	var buf bytes.Buffer
 	table := NewWriter(&buf)
 	table.SetHeader(header)
-	table.printLine(false)
+	table.printLine(&buf, false)
 	got := buf.String()
 	if got != want {
 		t.Errorf("line rendering failed\ngot:\n%s\nwant:\n%s\n", got, want)
@@ -327,7 +389,7 @@ func TestAnsiStrip(t *testing.T) {
 	var buf bytes.Buffer
 	table := NewWriter(&buf)
 	table.SetHeader(header)
-	table.printLine(false)
+	table.printLine(&buf, false)
 	got := buf.String()
 	if got != want {
 		t.Errorf("line rendering failed\ngot:\n%s\nwant:\n%s\n", got, want)
